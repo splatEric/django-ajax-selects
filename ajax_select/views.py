@@ -1,6 +1,7 @@
 
 from ajax_select import get_lookup
 from django.contrib.admin import site
+from django.contrib.admin.options import IS_POPUP_VAR
 from django.db import models
 from django.http import HttpResponse
 try:
@@ -63,18 +64,28 @@ def add_popup(request, app_label, model):
 
     # TODO : should detect where we really are
     admin.admin_site.root_path = "/ajax_select/"
+    # a simple hack to force the add_view to recognise that it is being
+    # rendered in a pop up context and therefore suppress additional 
+    # save options
+    get = request.GET.copy()
+    get[IS_POPUP_VAR] = 1
+    request.GET = get
 
     response = admin.add_view(request, request.path)
     if request.method == 'POST':
-        try:
-            # this detects TemplateResponse which are not yet rendered
-            # and are returned for form validation errors
-            if not response.is_rendered:
-                out = response.rendered_content
-            else:
-                out = response.content
-        except AttributeError:  # django < 1.5
-            out = response.content
-        if 'opener.dismissAddAnotherPopup' in out:
-            return HttpResponse(out.replace('dismissAddAnotherPopup', 'didAddPopup'))
+        # a simple hack to force the add_view to recognise that it is being
+        # rendered in a pop up context and so should return a TemplateResponse
+        # we can manipulate accordingly (as above)
+        post = request.POST.copy()
+        post[IS_POPUP_VAR] = 1
+        request.POST = post
+
+        def fiddle(response):
+            c = response.content.decode('UTF-8')
+            c = c.replace('dismissAddRelatedObjectPopup', 'didAddPopup')
+            response.content = c.encode('UTF-8')
+            return response
+
+        response.add_post_render_callback(fiddle)
+
     return response

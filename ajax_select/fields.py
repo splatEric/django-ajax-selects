@@ -26,10 +26,12 @@ IS_PYTHON2 = sys.version_info[0] == 2
 
 def _as_pk(got):
     # a unicode method that checks for integers
-    if (type(got) is unicode) and got.isnumeric():
-        if IS_PYTHON2:
+    if IS_PYTHON2:
+        if (type(got) is unicode and got.isnumeric):
             return long(got)
-        return int(got)
+    else:
+        if isinstance(got, str) and got.isnumeric():
+            return int(got)
     return got
 
 
